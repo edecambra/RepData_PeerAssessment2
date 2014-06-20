@@ -1,0 +1,160 @@
+Human and Economic Costs of Weather Events: A United States View
+========================================================
+The purpose of this analysis is to measure the costs human life and ecomonic costs of significant weather events.  The data for this analysis comes from the NOAA storm database, with measured storm characteristics across the United States, from 1950 - 2011.  This report will use a raw data file, perform the necessary conversions for any subsequent analysis, and present the results.  
+## Data Processing 
+
+First we must download the necessary data and reduce it's size.  The initial data, once decompressed contains 902,297 observations  of individual storms with 37 characteristic variables. 
+```{r}
+setwd("C:/coursera/RepData_PeerAssessment2")
+# retrieving the data
+if(!file.exists("NOAA.csv.bz2")){
+url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(url, "NOAA.csv.bz2")}
+
+#load data, and decompress
+d <- read.csv(bzfile("NOAA.csv.bz2"))
+name <- c("BGN_DATE", "STATE", "EVTYPE", "FATALITIES", 
+          "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
+data <- d[,(names(d) %in% name)]
+names(data) <- tolower(names(data))
+```
+
+Next, the data needs to be processed appropriately. First looking at the economic impact variables, property and crop damage are described by two variables each, first a numeric component and second a magnitude as thousands (k), millions (m), and billions (b).  The following code chunk combines these two into one dollar figure.  
+```{r}
+#Adjusting property and crop damage costs into appropriate numeric values
+# Property damage
+data$propdmg[as.character(data$propdmgexp) %in% c("k", "K")] <- 
+        data$propdmg[as.character(data$propdmgexp) %in% c("k", "K")] * 1000
+data$propdmg[as.character(data$propdmgexp) %in% c("m", "M")] <- 
+        data$propdmg[as.character(data$propdmgexp) %in% c("m", "M")] * 1000000
+data$propdmg[as.character(data$propdmgexp) %in% c("b", "B")] <- 
+        data$propdmg[as.character(data$propdmgexp) %in% c("b", "B")] * 1000000000
+# Crop damage
+data$cropdmg[as.character(data$cropdmgexp) %in% c("k", "K")] <- 
+        data$cropdmg[as.character(data$cropdmgexp) %in% c("k", "K")] * 1000
+data$cropdmg[as.character(data$cropdmgexp) %in% c("m", "M")] <- 
+        data$cropdmg[as.character(data$cropdmgexp) %in% c("m", "M")] * 1000000
+data$cropdmg[as.character(data$cropdmgexp) %in% c("b", "B")] <- 
+        data$cropdmg[as.character(data$cropdmgexp) %in% c("b", "B")] * 1000000000
+```
+Next the events are described in a messy fashion, with misspelled and both lower and upper case factor levels.  We attempt to consolidate redundent levels in the next code chunk, and for the sake of brevity, any events that describe multiple events, the first description is used.  
+
+The following process eliminates some level of detail, but it will improve precision by collapsing many closely related groups into individual factor units.  This will help to provide a more general picutre of the overall costs of different events, and once this is determined one can go back and drill into the details of any individual event.  
+
+```{r}
+data$evtype <- tolower(data$evtype)
+tempSep <- strsplit(data$evtype, "[/;,.-\\]")
+
+#function to use the first discriptor before seperator
+first.elm <- function(x){x[1]} #simple extractor function
+data$evtype <- unlist(sapply(tempSep, first.elm))
+
+#the and seperator, and dropping any trailing and
+andSep <- strsplit(data$evtype, "( and | & )")
+data$evtype <- unlist(sapply(andSep, first.elm))
+data$evtype <- gsub(" [Aa][Nn][Dd]$", "", data$evtype )
+
+#eliminate trailing numbers, for simplification of evaluation
+data$evtype <- gsub("[0-9]*$", "", data$evtype) #trailing numbers
+data$evtype <- gsub(" .g[0-9]*.$", "", data$evtype) #MPH numbers
+
+#errant puncuation and letters
+data$evtype <- gsub(" \\(.*$", "", data$evtype) #for parenthesis with char
+data$evtype <- gsub("\\($", "", data$evtype) #for parenthesis at end
+data$evtype <- gsub("-", " ", data$evtype)
+data$evtype <- gsub(" +[A-Za-z] +", "", data$evtype) #middle single letters
+data$evtype <- gsub(" +[A-Za-z]$", "", data$evtype) #trailing single letters
+
+#consolidating pluarl and erronous descriptors
+data$evtype <- gsub("ss$", "s", data$evtype) #double plural s i.e. ...ss
+data$evtype <- gsub("drynes" ,"dry" , data$evtype)        
+data$evtype <- gsub("wetnes(s?)" ,"wet" , data$evtype)
+data$evtype <- gsub("ies$", "y", data$evtype)
+data$evtype <- gsub("floes", "flow", data$evtype)
+data$evtype <- gsub("oes", "o", data$evtype)
+data$evtype <- gsub("s$", "", data$evtype) #to eliminate remaining plurality
+
+#abbreviations
+data$evtype <- gsub("tstm", "thunder storm", data$evtype)
+data$evtype <- gsub("hvy", "heavy", data$evtype)
+data$evtype <- gsub("wnd", "wind", data$evtype)
+data$evtype <- gsub("hvy", "heavy", data$evtype)
+data$evtype <- gsub("sml", "small", data$evtype)
+data$evtype <- gsub("fld", "flood", data$evtype)
+data$evtype <- gsub("precip$", "precipitation", data$evtype )
+
+#lots of storm misspelling
+data$evtype <- gsub("storm", " storm", data$evtype)
+data$evtype <- gsub("storm[ws]", "storm", data$evtype)
+data$evtype <- gsub("thundertorm", "thunder storm", data$evtype)
+data$evtype <- gsub("thundestorm", "thunder storm", data$evtype)
+data$evtype <- gsub("thunerstorm", "thunder storm", data$evtype)
+data$evtype <- gsub("tunderstorm", "thunder storm", data$evtype)
+data$evtype <- gsub("thuder", "thunder", data$evtype)
+data$evtype <- gsub("thundeer", "thunder", data$evtype)
+data$evtype <- gsub(" win$", " wind", data$evtype)
+data$evtype <- gsub("stormind", "storm wind", data$evtype)
+data$evtype <- gsub("thuner", "thunder", data$evtype)
+data$evtype <- gsub("thundere", "thunder", data$evtype)
+data$evtype <- gsub("winds", "wind", data$evtype)
+data$evtype <- gsub("windhail", "wind hail", data$evtype)
+data$evtype <- gsub("sorm", "storm", data$evtype)
+data$evtype <- gsub("strom", "Storm", data$evtype)
+
+
+#tropical storm and hurricane names
+data$evtype <- gsub("hurricane .*$", "hurricane", data$evtype)
+data$evtype <- gsub("tropical storm .*$", "tropical storm", data$evtype)
+
+#date summaries, consolodated into one factor
+data$evtype <- gsub("^summary .+$", "summary", data$evtype)
+
+#correcting for idiosyncracies in the descriptors
+data$evtype <- gsub("chill .*$" , "chill" , data$evtype) #chill and chill temperatures appears 
+data$evtype <- gsub("snow-.*$" , "snow" , data$evtype)
+data$evtype <- gsub("drynes" ,"dry" , data$evtype)        
+data$evtype <- gsub("wetnes(s?)" ,"wet" , data$evtype)
+data$evtype <- gsub("avalance" ,"avalanche" , data$evtype)  
+data$evtype <- gsub("erosin", "erosion", data$evtype)
+data$evtype <- gsub("coastal^ ", "coastal ", data$evtype)
+data$evtype <- gsub("cstl", "coastal", data$evtype)
+data$evtype <- gsub("mirco", "micro", data$evtype)
+data$evtype <- gsub("devel", "devil", data$evtype)
+data$evtype <- gsub("ooo", "oo", data$evtype)
+data$evtype <- gsub("flood flood", "flood", data$evtype)
+data$evtype <- gsub("flooding", "flood", data$evtype)
+data$evtype <- gsub("precipatation", "precipitation", data$evtype)
+data$evtype <- gsub("andblowing.*$", "", data$evtype)
+data$evtype <- gsub("lighting", "lightning", data$evtype)
+data$evtype <- gsub("w ind", "wind", data$evtype)
+data$evtype <- gsub("debri", "debris", data$evtype)
+data$evtype <- gsub("able", "ably", data$evtype)
+data$evtype <- gsub("unseasonal", "unseasonably", data$evtype)
+data$evtype <- gsub("unusual", "unusually", data$evtype)
+data$evtype <- gsub("vog", "fog", data$evtype)
+data$evtype <- gsub("spout", " spout", data$evtype)
+data$evtype <- gsub("fire", " fire", data$evtype)
+data$evtype <- gsub("flood", " flood", data$evtype)
+
+#eliminate double spaces and white space
+data$evtype <- gsub(" +( *)", " ", data$evtype) #double or multiple space
+data$evtype <- gsub("^( *)", "", data$evtype) #left white space
+data$evtype <- gsub("( *)$", "", data$evtype) #right white space
+
+levels <- levels(as.factor(data$evtype))
+levels <- data.frame(levels, grepl(".(s|es)$", levels))
+
+#
+```
+## Results
+
+
+```{r}
+require(doBy)
+agg.mean <- summaryBy(FATALITIES + INJURIES + PROPDMG + CROPDMG ~ EVTYPE, 
+                 data = data, FUN = mean )
+agg.mean <- agg.mean(order(agg.mean()))
+```
+
+
+##
