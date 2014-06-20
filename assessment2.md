@@ -4,7 +4,8 @@ The purpose of this analysis is to measure the costs human life and ecomonic cos
 ## Data Processing 
 
 First we must download the necessary data and reduce it's size.  The initial data, once decompressed contains 902,297 observations  of individual storms with 37 characteristic variables. 
-```{r, cache = TRUE}
+
+```r
 setwd("C:/coursera/RepData_PeerAssessment2")
 # retrieving the data
 if(!file.exists("NOAA.csv.bz2")){
@@ -20,7 +21,8 @@ names(data) <- tolower(names(data))
 ```
 
 Next, the data needs to be processed appropriately. First looking at the economic impact variables, property and crop damage are described by two variables each, first a numeric component and second a magnitude as thousands (k), millions (m), and billions (b).  The following code chunk combines these two into one dollar figure.  
-```{r}
+
+```r
 #Adjusting property and crop damage costs into appropriate numeric values
 # Property damage
 data$propdmg[as.character(data$propdmgexp) %in% c("k", "K")] <- 
@@ -41,7 +43,8 @@ Next the events are described in a messy fashion, with misspelled and both lower
 
 The following process eliminates some level of detail, but it will improve precision by collapsing many closely related groups into individual factor units.  This will help to provide a more general picutre of the overall costs of different events, and once this is determined one can go back and drill into the details of any individual event.  
 
-```{r}
+
+```r
 data$evtype <- tolower(data$evtype)
 tempSep <- strsplit(data$evtype, "[/;,.-\\]")
 
@@ -149,8 +152,19 @@ levels <- data.frame(levels, grepl(".(s|es)$", levels))
 ## Results
 
 
-```{r}
+
+```r
 require(doBy)
+```
+
+```
+## Loading required package: doBy
+## Loading required package: survival
+## Loading required package: splines
+## Loading required package: MASS
+```
+
+```r
 agg.mean <- summaryBy(fatalities + injuries + propdmg + cropdmg ~ evtype, 
                  data = data, FUN = mean )
 #agg.mean <- agg.mean[order(agg.mean$]
