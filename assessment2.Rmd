@@ -39,9 +39,9 @@ data$cropdmg[as.character(data$cropdmgexp) %in% c("b", "B")] <-
 ```
 Next the events are described in a messy fashion, with misspelled and both lower and upper case factor levels.  We attempt to consolidate redundent levels in the next code chunk, and for the sake of brevity, any events that describe multiple events, the first description is used.  
 
-The following process eliminates some level of detail, but it will improve precision by collapsing many closely related groups into individual factor units.  This will help to provide a more general picutre of the overall costs of different events, and once this is determined one can go back and drill into the details of any individual event.  
+The following process eliminates some level of detail, but it will improve precision by collapsing many closely related groups into individual factor units.  This will help to provide a more general picutre of the overall costs of different events, and once this is determined one can go back and drill into the details of any individual event.  This lowers the factor levels from over 900 to 400 different factor levels, and will assist in simplifying general results
 
-```{r}
+```{r, cache = TRUE}
 data$evtype <- tolower(data$evtype)
 tempSep <- strsplit(data$evtype, "[/;,.-\\]")
 
@@ -101,11 +101,6 @@ data$evtype <- gsub("windhail", "wind hail", data$evtype)
 data$evtype <- gsub("sorm", "storm", data$evtype)
 data$evtype <- gsub("strom", "Storm", data$evtype)
 
-
-#tropical storm and hurricane names
-data$evtype <- gsub("hurricane .*$", "hurricane", data$evtype)
-data$evtype <- gsub("tropical storm .*$", "tropical storm", data$evtype)
-
 #date summaries, consolodated into one factor
 data$evtype <- gsub("^summary .+$", "summary", data$evtype)
 
@@ -141,20 +136,97 @@ data$evtype <- gsub(" +( *)", " ", data$evtype) #double or multiple space
 data$evtype <- gsub("^( *)", "", data$evtype) #left white space
 data$evtype <- gsub("( *)$", "", data$evtype) #right white space
 
+#tropical storm and hurricane names
+data$evtype <- gsub("hurricane .*$", "hurricane", data$evtype)
+data$evtype <- gsub("tropical storm .*$", "tropical storm", data$evtype)
+
 levels <- levels(as.factor(data$evtype))
 levels <- data.frame(levels, grepl(".(s|es)$", levels))
-
 #
 ```
 ## Results
-
+Now that we have parsed the data and cleaned it to contain the appropriate variables, lets conduct some analysis.  The code chunk below presents some summary statistics for the top ten costliest events for each of the four variables.  
 
 ```{r}
 require(doBy)
+
+#average costs
 agg.mean <- summaryBy(fatalities + injuries + propdmg + cropdmg ~ evtype, 
-                 data = data, FUN = mean )
-#agg.mean <- agg.mean[order(agg.mean$]
+                 data = data, FUN = mean)
+#for fatalities
+agg.mean <- agg.mean[order(agg.mean$fatalities.mean, decreasing = TRUE),] 
+agg.mean[1:10, c(1,2)]
+#for injuries
+agg.mean <- agg.mean[order(agg.mean$injuries.mean, decreasing = TRUE),] 
+agg.mean[1:10, c(1,3)]
+#property damage
+agg.mean <- agg.mean[order(agg.mean$propdmg.mean, decreasing = TRUE),] 
+agg.mean[1:10, c(1,4)]
+#crop damage
+agg.mean <- agg.mean[order(agg.mean$cropdmg.mean, decreasing = TRUE),] 
+agg.mean[1:10, c(1,5)]
+
+#Median costs
+agg.median <- summaryBy(fatalities + injuries + propdmg + cropdmg ~ evtype, 
+                 data = data, FUN = median )
+#for fatalities
+agg.median <- agg.median[order(agg.median$fatalities.median, decreasing = TRUE),] 
+agg.median[1:10, c(1,2)]
+#for injuries
+agg.median <- agg.median[order(agg.median$injuries.median, decreasing = TRUE),] 
+agg.median[1:10, c(1,3)]
+#property damage
+agg.median <- agg.median[order(agg.median$propdmg.median, decreasing = TRUE),] 
+agg.median[1:10, c(1,4)]
+#crop damage
+agg.median <- agg.median[order(agg.median$cropdmg.median, decreasing = TRUE),] 
+agg.median[1:10, c(1,5)]
+
+#aggregated total costs
+agg.sum <- summaryBy(fatalities + injuries + propdmg + cropdmg ~ evtype, 
+                 data = data, FUN = sum )
+#for fatalities
+agg.sum <- agg.sum[order(agg.sum$fatalities.sum, decreasing = TRUE),] 
+agg.sum[1:10, c(1,2)]
+#for injuries
+agg.sum <- agg.sum[order(agg.sum$injuries.sum, decreasing = TRUE),] 
+agg.sum[1:10, c(1,3)]
+#property damage
+agg.sum <- agg.sum[order(agg.sum$propdmg.sum, decreasing = TRUE),] 
+agg.sum[1:10, c(1,4)]
+#crop damage
+agg.sum <- agg.sum[order(agg.sum$cropdmg.sum, decreasing = TRUE),] 
+agg.sum[1:10, c(1,5)]
 ```
+### Population Health Impacts
+Looking at the human life impact statistics, the notabile results is that typically the most dangerous events are the result of either hard to predict or typically unexpected weather events, or more day to day weather events.  These include maritime accidents and tsunami's.  
+Also notable is the fact that extreme heat and heatwaves seem to be relatively dangerous to population health.  The highest mean and median numbers for fatalities and injuries caused by weather events are heat related, and furthermore, the summed number deaths and injuries appears as in the top 4 most dangerous events as well.  This may be due to the lack of proper education of how to deal with heat, and how relatively easy it is to get sick in even moderate heat.  
+To look at this closer, see a histogram of the heat events:
+```{r}
+health.hist <- data[grep("heat", data$evtype), 
+                    c("evtype", "fatalities", "injuries")]
 
+par(mfrow = c(1,2))
+hist(log(health.hist$fatalities), xlab = "Fatalities")
+hist(log(health.hist$injuries), xlab = "Injuries")
+```
+From this picture, after log transformation of the variables to aid in visual inspection, deaths related to any one heat related event are typically low, and individuals are much more likely to sustain injuries than death.
 
-##
+### Economic Impacts
+The economic front shows a more intuitive picture of what one would expect.  Costly events are for property damage are typically large storms, such as hurricanes, typhoons, floods and fire.  For crop damage the events that seem to drive costs are related to freezing conditions, hot conditions, or dry conditions.  To visualize this, lets consider some histograms.
+
+```{r}
+#selecting top contributing events
+econ.prop.hist <- data[grep("(hurricane|tropical|typhoon|flood)",data$evtype),
+                       c("evtype", "propdmg")]
+econ.crop.hist <- data[grep("(freez|heat|flood|drought|frost|cold|wet)", 
+                            data$evtype), c("evtype", "cropdmg")]
+par(mfrow = c(1,2))
+hist(log(econ.prop.hist$propdmg), main = "Log of Property Damage",
+     xlab = "")
+hist(log(econ.crop.hist$cropdmg), main = "Log of Crop Damage", 
+     xlab = "")
+#for frame of reference, exponentiating 
+exp(5);exp(10); exp(15)
+```
+Here the distribution of costs is much less skewed than the health related events previously described.  Many of these events are hard to plan for, and hard to avoid.  

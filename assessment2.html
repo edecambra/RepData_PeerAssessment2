@@ -222,7 +222,7 @@ data$cropdmg[as.character(data$cropdmgexp) %in% c(&quot;b&quot;, &quot;B&quot;)]
 
 <p>Next the events are described in a messy fashion, with misspelled and both lower and upper case factor levels.  We attempt to consolidate redundent levels in the next code chunk, and for the sake of brevity, any events that describe multiple events, the first description is used.  </p>
 
-<p>The following process eliminates some level of detail, but it will improve precision by collapsing many closely related groups into individual factor units.  This will help to provide a more general picutre of the overall costs of different events, and once this is determined one can go back and drill into the details of any individual event.  </p>
+<p>The following process eliminates some level of detail, but it will improve precision by collapsing many closely related groups into individual factor units.  This will help to provide a more general picutre of the overall costs of different events, and once this is determined one can go back and drill into the details of any individual event.  This lowers the factor levels from over 900 to 400 different factor levels, and will assist in simplifying general results</p>
 
 <pre><code class="r">data$evtype &lt;- tolower(data$evtype)
 tempSep &lt;- strsplit(data$evtype, &quot;[/;,.-\\]&quot;)
@@ -283,11 +283,6 @@ data$evtype &lt;- gsub(&quot;windhail&quot;, &quot;wind hail&quot;, data$evtype)
 data$evtype &lt;- gsub(&quot;sorm&quot;, &quot;storm&quot;, data$evtype)
 data$evtype &lt;- gsub(&quot;strom&quot;, &quot;Storm&quot;, data$evtype)
 
-
-#tropical storm and hurricane names
-data$evtype &lt;- gsub(&quot;hurricane .*$&quot;, &quot;hurricane&quot;, data$evtype)
-data$evtype &lt;- gsub(&quot;tropical storm .*$&quot;, &quot;tropical storm&quot;, data$evtype)
-
 #date summaries, consolodated into one factor
 data$evtype &lt;- gsub(&quot;^summary .+$&quot;, &quot;summary&quot;, data$evtype)
 
@@ -323,13 +318,18 @@ data$evtype &lt;- gsub(&quot; +( *)&quot;, &quot; &quot;, data$evtype) #double o
 data$evtype &lt;- gsub(&quot;^( *)&quot;, &quot;&quot;, data$evtype) #left white space
 data$evtype &lt;- gsub(&quot;( *)$&quot;, &quot;&quot;, data$evtype) #right white space
 
+#tropical storm and hurricane names
+data$evtype &lt;- gsub(&quot;hurricane .*$&quot;, &quot;hurricane&quot;, data$evtype)
+data$evtype &lt;- gsub(&quot;tropical storm .*$&quot;, &quot;tropical storm&quot;, data$evtype)
+
 levels &lt;- levels(as.factor(data$evtype))
 levels &lt;- data.frame(levels, grepl(&quot;.(s|es)$&quot;, levels))
-
 #
 </code></pre>
 
 <h2>Results</h2>
+
+<p>Now that we have parsed the data and cleaned it to contain the appropriate variables, lets conduct some analysis.  The code chunk below presents some summary statistics for the top ten costliest events for each of the four variables.  </p>
 
 <pre><code class="r">require(doBy)
 </code></pre>
@@ -340,12 +340,280 @@ levels &lt;- data.frame(levels, grepl(&quot;.(s|es)$&quot;, levels))
 ## Loading required package: MASS
 </code></pre>
 
-<pre><code class="r">agg.mean &lt;- summaryBy(fatalities + injuries + propdmg + cropdmg ~ evtype, 
-                 data = data, FUN = mean )
-#agg.mean &lt;- agg.mean[order(agg.mean$]
+<pre><code class="r">#average costs
+agg.mean &lt;- summaryBy(fatalities + injuries + propdmg + cropdmg ~ evtype, 
+                 data = data, FUN = mean)
+#for fatalities
+agg.mean &lt;- agg.mean[order(agg.mean$fatalities.mean, decreasing = TRUE),] 
+agg.mean[1:10, c(1,2)]
 </code></pre>
 
-<p>##</p>
+<pre><code>##                evtype fatalities.mean
+## 79       extreme heat           4.364
+## 246            record           4.250
+## 124 heat wave drought           4.000
+## 207     marine mishap           3.500
+## 277         rough sea           2.667
+## 123         heat wave           2.299
+## 343           tsunami           1.650
+## 132         heavy sea           1.500
+## 34       cold weather           1.250
+## 121              heat           1.220
+</code></pre>
+
+<pre><code class="r">#for injuries
+agg.mean &lt;- agg.mean[order(agg.mean$injuries.mean, decreasing = TRUE),] 
+agg.mean[1:10, c(1,3)]
+</code></pre>
+
+<pre><code>##                     evtype injuries.mean
+## 124      heat wave drought        15.000
+## 396 winter storm high wind        15.000
+## 398     winter weather mix        11.333
+## 79            extreme heat         7.045
+## 231 non severe wind damage         7.000
+## 343                tsunami         6.450
+## 72      excessive rainfall         5.250
+## 105                  glaze         5.250
+## 123              heat wave         4.922
+## 161              hurricane         4.611
+</code></pre>
+
+<pre><code class="r">#property damage
+agg.mean &lt;- agg.mean[order(agg.mean$propdmg.mean, decreasing = TRUE),] 
+agg.mean[1:10, c(1,4)]
+</code></pre>
+
+<pre><code>##                     evtype propdmg.mean
+## 161              hurricane    294292292
+## 308            storm surge    117273164
+## 396 winter storm high wind     60000000
+## 345                typhoon     54566364
+## 118             hail storm     48200000
+## 203            major flood     35000000
+## 284   severe thunder storm     33537778
+## 273            river flood     25917027
+## 342         tropical storm     11067992
+## 66                 erosion      8100000
+</code></pre>
+
+<pre><code class="r">#crop damage
+agg.mean &lt;- agg.mean[order(agg.mean$cropdmg.mean, decreasing = TRUE),] 
+agg.mean[1:10, c(1,5)]
+</code></pre>
+
+<pre><code>##                        evtype cropdmg.mean
+## 74              excessive wet    142000000
+## 40            damaging freeze     37028750
+## 273               river flood     25037050
+## 62                early frost     21000000
+## 161                 hurricane     19150322
+## 96                     freeze      6009539
+## 285 severe thunder storm wind      5800000
+## 48                    drought      5586794
+## 396    winter storm high wind      5000000
+## 36                       cool      5000000
+</code></pre>
+
+<pre><code class="r">#Median costs
+agg.median &lt;- summaryBy(fatalities + injuries + propdmg + cropdmg ~ evtype, 
+                 data = data, FUN = median )
+#for fatalities
+agg.median &lt;- agg.median[order(agg.median$fatalities.median, decreasing = TRUE),] 
+agg.median[1:10, c(1,2)]
+</code></pre>
+
+<pre><code>##                evtype fatalities.median
+## 124 heat wave drought               4.0
+## 207     marine mishap               3.5
+## 277         rough sea               2.0
+## 132         heavy sea               1.5
+## 34       cold weather               1.0
+## 49           drowning               1.0
+## 76      extended cold               1.0
+## 101    freezing spray               1.0
+## 144          high sea               1.0
+## 162      hyperthermia               1.0
+</code></pre>
+
+<pre><code class="r">#for injuries
+agg.median &lt;- agg.median[order(agg.median$injuries.median, decreasing = TRUE),] 
+agg.median[1:10, c(1,3)]
+</code></pre>
+
+<pre><code>##                     evtype injuries.median
+## 124      heat wave drought            15.0
+## 396 winter storm high wind            15.0
+## 231 non severe wind damage             7.0
+## 340    torrential rainfall             4.0
+## 207          marine mishap             2.5
+## 204        marine accident             2.0
+## 136      heavy snow shower             2.0
+## 275             rogue wave             2.0
+## 374           warm weather             2.0
+## 331            thundersnow             1.0
+</code></pre>
+
+<pre><code class="r">#property damage
+agg.median &lt;- agg.median[order(agg.median$propdmg.median, decreasing = TRUE),] 
+agg.median[1:10, c(1,4)]
+</code></pre>
+
+<pre><code>##                     evtype propdmg.median
+## 396 winter storm high wind       60000000
+## 203            major flood       50000000
+## 66                 erosion        8100000
+## 155   high wind heavy rain        7500000
+## 95             forest fire        5000000
+## 138         heavy snowpack        5000000
+## 192         lightning fire        5000000
+## 118             hail storm        1000000
+## 161              hurricane        1000000
+## 25         coastal erosion         766000
+</code></pre>
+
+<pre><code class="r">#crop damage
+agg.median &lt;- agg.median[order(agg.median$cropdmg.median, decreasing = TRUE),] 
+agg.median[1:10, c(1,5)]
+</code></pre>
+
+<pre><code>##                     evtype cropdmg.median
+## 74           excessive wet       1.42e+08
+## 62             early frost       2.10e+07
+## 396 winter storm high wind       5.00e+06
+## 36                    cool       5.00e+06
+## 351      unseasonably rain       5.00e+06
+## 5      agricultural freeze       7.40e+05
+## 95             forest fire       5.00e+05
+## 124      heat wave drought       5.00e+04
+## 319     thunder storm hail       5.00e+04
+## 40         damaging freeze       4.00e+04
+</code></pre>
+
+<pre><code class="r">#aggregated total costs
+agg.sum &lt;- summaryBy(fatalities + injuries + propdmg + cropdmg ~ evtype, 
+                 data = data, FUN = sum )
+#for fatalities
+agg.sum &lt;- agg.sum[order(agg.sum$fatalities.sum, decreasing = TRUE),] 
+agg.sum[1:10, c(1,2)]
+</code></pre>
+
+<pre><code>##                 evtype fatalities.sum
+## 336            tornado           5658
+## 69      excessive heat           1903
+## 86         flash flood           1018
+## 121               heat            937
+## 190          lightning            817
+## 321 thunder storm wind            710
+## 270        rip current            577
+## 91               flood            495
+## 152          high wind            293
+## 78        extreme cold            287
+</code></pre>
+
+<pre><code class="r">#for injuries
+agg.sum &lt;- agg.sum[order(agg.sum$injuries.sum, decreasing = TRUE),] 
+agg.sum[1:10, c(1,3)]
+</code></pre>
+
+<pre><code>##                 evtype injuries.sum
+## 336            tornado        91364
+## 321 thunder storm wind         9469
+## 91               flood         6806
+## 69      excessive heat         6525
+## 190          lightning         5231
+## 121               heat         2100
+## 172          ice storm         1977
+## 86         flash flood         1785
+## 152          high wind         1471
+## 114               hail         1361
+</code></pre>
+
+<pre><code class="r">#property damage
+agg.sum &lt;- agg.sum[order(agg.sum$propdmg.sum, decreasing = TRUE),] 
+agg.sum[1:10, c(1,4)]
+</code></pre>
+
+<pre><code>##                 evtype propdmg.sum
+## 91               flood   1.450e+11
+## 161          hurricane   8.476e+10
+## 336            tornado   5.854e+10
+## 308        storm surge   4.796e+10
+## 86         flash flood   1.673e+10
+## 114               hail   1.573e+10
+## 321 thunder storm wind   9.761e+09
+## 342     tropical storm   7.714e+09
+## 395       winter storm   6.689e+09
+## 152          high wind   5.995e+09
+</code></pre>
+
+<pre><code class="r">#crop damage
+agg.sum &lt;- agg.sum[order(agg.sum$cropdmg.sum, decreasing = TRUE),] 
+agg.sum[1:10, c(1,5)]
+</code></pre>
+
+<pre><code>##                 evtype cropdmg.sum
+## 48             drought   1.397e+10
+## 91               flood   5.879e+09
+## 161          hurricane   5.515e+09
+## 273        river flood   5.057e+09
+## 172          ice storm   5.022e+09
+## 114               hail   3.026e+09
+## 86         flash flood   1.437e+09
+## 78        extreme cold   1.313e+09
+## 321 thunder storm wind   1.224e+09
+## 102              frost   1.160e+09
+</code></pre>
+
+<h3>Population Health Impacts</h3>
+
+<p>Looking at the human life impact statistics, the notabile results is that typically the most dangerous events are the result of either hard to predict or typically unexpected weather events, or more day to day weather events.  These include maritime accidents and tsunami&#39;s.<br/>
+Also notable is the fact that extreme heat and heatwaves seem to be relatively dangerous to population health.  The highest mean and median numbers for fatalities and injuries caused by weather events are heat related, and furthermore, the summed number deaths and injuries appears as in the top 4 most dangerous events as well.  This may be due to the lack of proper education of how to deal with heat, and how relatively easy it is to get sick in even moderate heat.<br/>
+To look at this closer, see a histogram of the heat events:</p>
+
+<pre><code class="r">health.hist &lt;- data[grep(&quot;heat&quot;, data$evtype), 
+                    c(&quot;evtype&quot;, &quot;fatalities&quot;, &quot;injuries&quot;)]
+
+par(mfrow = c(1,2))
+hist(log(health.hist$fatalities), xlab = &quot;Fatalities&quot;)
+hist(log(health.hist$injuries), xlab = &quot;Injuries&quot;)
+</code></pre>
+
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAfgAAAH4CAMAAACR9g9NAAAAllBMVEX9/v0AAAAAADkAAGUAOTkAOWUAOY8AZo8AZrU5AAA5ADk5AGU5OWU5OY85ZrU5j485j9plAABlADllAGVlOQBlOY9lZjlltbVltf2POQCPOTmPOWWPZgCPtY+P27WP29qP2/21ZgC1jzm1tWW124+1/rW1/tq1/v3ajzna24/a/rXa/tra/v39tWX924/9/rX9/tr9/v3eiurnAAAAMnRSTlP/////////////////////////////////////////////////////////////////AA1QmO8AAAAJcEhZcwAACxIAAAsSAdLdfvwAABGTSURBVHic7Z2LeqvGFUaLT+raSZzISdraOWmPlSa1mliXef+XK8NFEsOAxCCQ9t5rfW3OCKHx/FowDIjLXxyY5C/XbgBcB8QbBfFGQbxREG8UxBsF8UZBvFEQbxTEGwXxRkG8URBvFMQbBfFGQbxREG8UxBsF8UZBvFEQbxTEGwXxRkG8UTSJXy2u3YLrMih/JX77/Ondud3rp/eyVLN8GdGQzWN297avvM3q7s3/xfiHyw/lf78xy/5Fu5nb5yy7/zj81VYA/5F9rUGb9ORvvBH5y/WklvjGXMtsTPD60x3Bt88P7b/YbKCvIR689Yd87ix7CNp8/GLfjEgqRfnPJL7G58tq9ul991pWtcr/WRR/Nfv0+/P9x+717h/5srzOJ+dL9Dr7Wz79PZ+p/pLK+YtP+1WwqjysJZ9QpPrtMSvC+Pd9DVW1+Yf+W/z9o1ncYf5WM9fZ/a/fV5+5/ygrqQIcanzf19q/xsvNX7Q/n+s/WT1Xsaxs983+d9WYqPhy6bn/swy+zMplqfgDXz36Gvy7f5QzFd9xyX6FysoGN4JHasnjFa+qFTUrvpnqb38cBa9nKb+18kWrmZvH+18X1Qx12/6sHO9rPFO84PyV66O5jsSXzS4bsxdft93Pm1fyse9DNo/F8nf3tnnMP7LKihoeDt/XOvMfyF78LH7afv5GV9euxbfFB1k4/+eKP1l3ZPutcdnVVbNUwcsXrWYW39zCBR3s8YtGrcXnj8VryV+JX+Q9RznXsfiHujH3H1HxxatibJHXuC5S5v3SuvxctaxWH/LB6yWrnLqfvxG8XUsVtfg+9uuNr6Ks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" alt="plot of chunk unnamed-chunk-5"/> 
+From this picture, after log transformation of the variables to aid in visual inspection, deaths related to any one heat related event are typically low, and individuals are much more likely to sustain injuries than death.</p>
+
+<h3>Economic Impacts</h3>
+
+<p>The economic front shows a more intuitive picture of what one would expect.  Costly events are for property damage are typically large storms, such as hurricanes, typhoons, floods and fire.  For crop damage the events that seem to drive costs are related to freezing conditions, hot conditions, or dry conditions.  To visualize this, lets consider some histograms.</p>
+
+<pre><code class="r">#selecting top contributing events
+econ.prop.hist &lt;- data[grep(&quot;(hurricane|tropical|typhoon|flood)&quot;,data$evtype),
+                       c(&quot;evtype&quot;, &quot;propdmg&quot;)]
+econ.crop.hist &lt;- data[grep(&quot;(freez|heat|flood|drought|frost|cold|wet)&quot;, 
+                            data$evtype), c(&quot;evtype&quot;, &quot;cropdmg&quot;)]
+par(mfrow = c(1,2))
+hist(log(econ.prop.hist$propdmg), main = &quot;Log of Property Damage&quot;,
+     xlab = &quot;&quot;)
+hist(log(econ.crop.hist$cropdmg), main = &quot;Log of Crop Damage&quot;, 
+     xlab = &quot;&quot;)
+</code></pre>
+
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAfgAAAH4CAMAAACR9g9NAAAAclBMVEX9/v0AAAAAADkAAGUAOTkAOWUAOY8AZo8AZrU5AAA5ADk5AGU5OY85j9plAABlADllAGVlOQBlZjlltf2POQCPOTmPOWWPtY+P2/21ZgC1tWW1/rW1/v3ajzna24/a/rXa/v39tWX924/9/rX9/tr9/v1RQ7vnAAAAJnRSTlP/////////////////////////////////////////////////AKd6gbwAAAAJcEhZcwAACxIAAAsSAdLdfvwAABBESURBVHic7Z1rg5u4FUCXSZp6uvFkW0+64zbuxmPz//9ieU1mbCQBeiBx7zkfEgYQcHUQ6NpY/FaDSn7LfQCQB8QrBfFKQbxSEK8UxCsF8UpBvFIQrxTEKwXxSkG8UhCvFMQrBfFKQbxSEK8UxCsF8UpBvFIQrxTEKwXxSkG8UhCvFG/xr49ffs5br3p4af6/PFUth/l7ON6su7z8SiytiCGUvXvt5OEmF38cDn6IZIh9QcGBofxUha3P0oqoz30gO+faycONIP40HN/1ufr036fbuc28qupmXbolx2p/fX74V+t/KHZ9/vSfqvr0YyhyaOc0K3T8/bmZf+6Dvzy165yrbk53Ap2b5c2fp67QMO/DQZxWuj4srYhmat/OfXix18QK4YaLPw7nbxfa57u5RvHdrJti3TrH4RTv5vztn+3SUxPLsb9I9DXRtpu+MXz5ObScqq2st3nvB/G2teQsrYh+/evzobbWxBrhBot/fWzEXJ4eXl4fm0M9VXdzx5f65mB3H1boGkCz8NBtsDnrf/QrdAVfH3ftnA81ceo31/7VNofmxnnodjPM+3UQv7bmG1+yijj/0mOriVXCDRZ/7iw1B9hNXJ7u5t6Jb465ucC9fFihP9pTtR/O6O4K2EbWFrw+f/nraVff10S7rbYmdt3cfv33ed1B/Nqab3zJKuKjeHNNrBLuiuKHa98S8fXp4c/Hff2hJo7tpaG/3vU10V7v2lb2Pq9w8R8v9ZPi04W74qX+RrzlUv++Ql/wYw701ttpq6bd2ceaeJt3e+1bBY973nvnzlgTq4QbIH7oTjj7NLVNfG3r3PWR9St0S4di7/nNuRo3gbd5972dFewvrYj3dM5aE2uEGy7+VxbTHOsoi7GLv01iumXH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" alt="plot of chunk unnamed-chunk-6"/> </p>
+
+<pre><code class="r">#for frame of reference, exponentiating 
+exp(5);exp(10); exp(15)
+</code></pre>
+
+<pre><code>## [1] 148.4
+</code></pre>
+
+<pre><code>## [1] 22026
+</code></pre>
+
+<pre><code>## [1] 3269017
+</code></pre>
+
+<p>Here the distribution of costs is much less skewed than the health related events previously described.  Many of these events are hard to plan for, and hard to avoid.  </p>
 
 </body>
 
